@@ -1,0 +1,295 @@
+:root {
+  --bg: #120c1f;
+  --card: #1d1530;
+  --line: #2e2347;
+  --text: #ece8f6;
+  --muted: #a49cbc;
+  --accent: #8b5cf6;
+  --accent-2: #f5b942;
+  --ok: #22c55e;
+  --warn: #f59e0b;
+  --err: #f87171;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  width: 340px;
+  margin: 0;
+  padding: 12px;
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.4 system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+h1 {
+  flex: 1;
+  margin: 0;
+  font-size: 16px;
+  letter-spacing: 0.02em;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.hint p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.between {
+  justify-content: space-between;
+}
+
+select {
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: #0f0a1a;
+  color: var(--text);
+  font: inherit;
+}
+
+.status {
+  margin: 6px 0 0;
+  color: var(--muted);
+  min-height: 1em;
+}
+
+.status.ok {
+  color: var(--ok);
+}
+
+.status.warn {
+  color: var(--warn);
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border-radius: 8px;
+  border: 0;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.primary {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a1206;
+  background: linear-gradient(135deg, var(--accent-2), #e08a1e);
+}
+
+.primary.return {
+  color: #fff;
+  background: linear-gradient(135deg, var(--accent), #5b21b6);
+}
+
+.secondary {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px;
+  color: var(--text);
+  background: #2c2145;
+  border: 1px solid #3d2f60;
+}
+
+.secondary.small {
+  width: auto;
+  padding: 4px 10px;
+}
+
+.link {
+  background: none;
+  color: var(--muted);
+  padding: 0;
+  text-decoration: underline;
+  font-size: 12px;
+}
+
+.room {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #0b0714;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+
+.room img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+#captureOverlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(10, 6, 20, 0.7);
+  font-size: 40px;
+  font-weight: 800;
+  color: var(--accent-2);
+}
+
+.notice {
+  margin: -4px 0 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--warn);
+}
+
+.toggle {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 6px 0;
+  cursor: pointer;
+}
+
+.toggle input {
+  margin-top: 3px;
+  accent-color: var(--accent);
+}
+
+.toggle span {
+  display: flex;
+  flex-direction: column;
+}
+
+.toggle small {
+  color: var(--muted);
+}
+
+.toggle.compact {
+  padding-bottom: 0;
+}
+
+.snapbox {
+  margin: 2px 0 8px 24px;
+  padding: 8px;
+  border-left: 2px solid var(--line);
+}
+
+.snapbox[hidden] {
+  display: none;
+}
+
+input[type='range'] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.meter {
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  background: #0b0714;
+  overflow: hidden;
+}
+
+#meterFill {
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, #4c1d95, var(--accent), var(--accent-2));
+  transition: width 60ms linear;
+}
+
+/* Trigger threshold: level 1.0 of a 0-1.5 scale. */
+.meter-mark {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 66.6%;
+  width: 2px;
+  background: var(--text);
+  opacity: 0.6;
+}
+
+#snapFlash {
+  display: inline-block;
+  margin-top: 4px;
+  font-weight: 700;
+  color: var(--accent-2);
+  opacity: 0;
+  transition: opacity 400ms;
+}
+
+#snapFlash.on {
+  opacity: 1;
+  transition: none;
+}
+
+.pill {
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #2c2145;
+  color: var(--muted);
+}
+
+.pill.on {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--ok);
+}
+
+.pill.gone {
+  background: rgba(139, 92, 246, 0.2);
+  color: #c4b5fd;
+}
+
+footer {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+footer p {
+  margin: 0 0 6px;
+}
+
+footer a {
+  color: #c4b5fd;
+}

@@ -1,0 +1,68 @@
+{
+  "extName": { "message": "Thanos Snap" },
+  "extDescription": { "message": "Disappear from Google Meet, Teams and Zoom web calls with a finger snap. Snap again to return." },
+  "cmdToggle": { "message": "Vanish / return" },
+
+  "popupCall": { "message": "Call" },
+  "noCalls": { "message": "Open a call in Google Meet, Microsoft Teams or Zoom in this browser and turn on your camera." },
+  "connecting": { "message": "Connecting…" },
+  "notAttached": { "message": "Thanos Snap isn't attached to this tab yet. Reload the tab." },
+  "reloadTab": { "message": "Reload tab" },
+  "unsupported": { "message": "This browser doesn't support the video processing Thanos Snap needs." },
+  "camOn": { "message": "Camera is being processed." },
+  "camOff": { "message": "No camera yet. Turn your camera on in the call. If it was already on, turn it off and on again." },
+  "badgeLive": { "message": "ON" },
+  "badgeGone": { "message": "GONE" },
+
+  "roomTitle": { "message": "Empty room" },
+  "roomNone": { "message": "No snapshot yet" },
+  "clearRoom": { "message": "Delete" },
+  "captureBtn": { "message": "Capture empty room" },
+  "cancel": { "message": "Cancel" },
+  "captureLeave": {
+    "message": "Step out of view… $SECONDS$",
+    "placeholders": { "seconds": { "content": "$1", "example": "5" } }
+  },
+  "captureHold": {
+    "message": "Stay out of view, capturing… $SECONDS$",
+    "placeholders": { "seconds": { "content": "$1", "example": "3" } }
+  },
+  "captureDone": { "message": "Room captured. Come back!" },
+
+  "vanish": { "message": "Vanish" },
+  "vanishing": { "message": "Vanishing…" },
+  "return": { "message": "Return" },
+  "returning": { "message": "Returning…" },
+
+  "snapDetect": { "message": "Snap detection" },
+  "snapDetectHint": { "message": "Listens to your microphone locally. Muting the call does not stop it." },
+  "sensitivity": { "message": "Sensitivity" },
+  "snapHeard": { "message": "Snap!" },
+  "micOn": { "message": "Listening" },
+  "micIdle": { "message": "Starts with camera" },
+  "micWaiting": { "message": "Click the call page" },
+  "doubleSnap": { "message": "Require double snap" },
+  "doubleSnapHint": { "message": "Fewer accidental triggers in noisy rooms." },
+  "thanosMode": { "message": "Thanos mode" },
+  "thanosHint": { "message": "Turn to dust instead of fading out." },
+
+  "noCamera": { "message": "Turn on your camera in the call first." },
+  "needRoom": { "message": "Capture the empty room first." },
+  "capturing": { "message": "Wait until the room capture finishes." },
+  "captureFailed": { "message": "Couldn't capture the room. Is the camera on?" },
+  "micError": { "message": "The microphone isn't available for snap detection." },
+
+  "shortcut": {
+    "message": "Shortcut: $KEY$",
+    "placeholders": { "key": { "content": "$1", "example": "Alt+Shift+V" } }
+  },
+  "firstTest": { "message": "First time? Turn off the call's own background effects and check the result with another participant." },
+  "privacy": { "message": "Camera effects and snap detection run locally. Settings and the room snapshot stay in your browser." },
+  "testPage": { "message": "Open test page" },
+
+  "testIntro": { "message": "Try Thanos Snap without a call. Your camera is processed locally and nothing is sent anywhere." },
+  "testStart": { "message": "Start camera" },
+  "testStop": { "message": "Stop camera" },
+  "testRaw": { "message": "Camera" },
+  "testProcessed": { "message": "What the call sees" }
+}

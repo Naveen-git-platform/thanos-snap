@@ -1,0 +1,68 @@
+{
+  "extName": { "message": "Thanos Snap" },
+  "extDescription": { "message": "Зникайте з відеодзвінків Google Meet, Teams і Zoom у браузері клацанням пальців. Клацніть ще раз, щоб повернутися." },
+  "cmdToggle": { "message": "Зникнути / повернутися" },
+
+  "popupCall": { "message": "Дзвінок" },
+  "noCalls": { "message": "Відкрийте дзвінок у Google Meet, Microsoft Teams або Zoom у цьому браузері та увімкніть камеру." },
+  "connecting": { "message": "Підключення…" },
+  "notAttached": { "message": "Thanos Snap ще не підключено до цієї вкладки. Перезавантажте вкладку." },
+  "reloadTab": { "message": "Перезавантажити" },
+  "unsupported": { "message": "Цей браузер не підтримує обробку відео, потрібну для Thanos Snap." },
+  "camOn": { "message": "Камера обробляється." },
+  "camOff": { "message": "Камеру ще не виявлено. Увімкніть камеру в дзвінку. Якщо вона вже була увімкнена, вимкніть і знову увімкніть її." },
+  "badgeLive": { "message": "ON" },
+  "badgeGone": { "message": "НЕМА" },
+
+  "roomTitle": { "message": "Порожня кімната" },
+  "roomNone": { "message": "Знімка ще немає" },
+  "clearRoom": { "message": "Видалити" },
+  "captureBtn": { "message": "Зняти порожню кімнату" },
+  "cancel": { "message": "Скасувати" },
+  "captureLeave": {
+    "message": "Вийдіть із кадру… $SECONDS$",
+    "placeholders": { "seconds": { "content": "$1", "example": "5" } }
+  },
+  "captureHold": {
+    "message": "Залишайтеся поза кадром, знімаємо… $SECONDS$",
+    "placeholders": { "seconds": { "content": "$1", "example": "3" } }
+  },
+  "captureDone": { "message": "Кімнату знято. Повертайтеся!" },
+
+  "vanish": { "message": "Зникнути" },
+  "vanishing": { "message": "Зникаємо…" },
+  "return": { "message": "Повернутися" },
+  "returning": { "message": "Повертаємося…" },
+
+  "snapDetect": { "message": "Розпізнавання клацання" },
+  "snapDetectHint": { "message": "Слухає мікрофон локально. Вимкнення звуку в дзвінку його не зупиняє." },
+  "sensitivity": { "message": "Чутливість" },
+  "snapHeard": { "message": "Клац!" },
+  "micOn": { "message": "Слухаю" },
+  "micIdle": { "message": "Запуститься з камерою" },
+  "micWaiting": { "message": "Клацніть на сторінці дзвінка" },
+  "doubleSnap": { "message": "Подвійне клацання" },
+  "doubleSnapHint": { "message": "Менше випадкових спрацювань у шумних кімнатах." },
+  "thanosMode": { "message": "Режим Таноса" },
+  "thanosHint": { "message": "Розсипатися на пил замість згасання." },
+
+  "noCamera": { "message": "Спершу увімкніть камеру в дзвінку." },
+  "needRoom": { "message": "Спершу зніміть порожню кімнату." },
+  "capturing": { "message": "Зачекайте, доки завершиться знімання кімнати." },
+  "captureFailed": { "message": "Не вдалося зняти кімнату. Камера увімкнена?" },
+  "micError": { "message": "Мікрофон недоступний для розпізнавання клацання." },
+
+  "shortcut": {
+    "message": "Клавіші: $KEY$",
+    "placeholders": { "key": { "content": "$1", "example": "Alt+Shift+V" } }
+  },
+  "firstTest": { "message": "Перший раз? Вимкніть ефекти фону самого сервісу та перевірте результат з іншим учасником." },
+  "privacy": { "message": "Ефекти камери та розпізнавання клацання працюють локально. Налаштування та знімок кімнати залишаються у вашому браузері." },
+  "testPage": { "message": "Відкрити тестову сторінку" },
+
+  "testIntro": { "message": "Спробуйте Thanos Snap без дзвінка. Камера обробляється локально, нічого нікуди не надсилається." },
+  "testStart": { "message": "Увімкнути камеру" },
+  "testStop": { "message": "Вимкнути камеру" },
+  "testRaw": { "message": "Камера" },
+  "testProcessed": { "message": "Що бачить дзвінок" }
+}

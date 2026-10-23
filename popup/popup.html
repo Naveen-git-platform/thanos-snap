@@ -1,0 +1,87 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Thanos Snap</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <img src="../icons/icon48.png" alt="" width="28" height="28" />
+      <h1 data-i18n="extName"></h1>
+      <span id="badge" class="pill" hidden></span>
+    </header>
+
+    <section id="noCalls" class="card hint" hidden>
+      <p data-i18n="noCalls"></p>
+    </section>
+
+    <main id="main" hidden>
+      <section class="card">
+        <label class="label" for="callSelect" data-i18n="popupCall"></label>
+        <select id="callSelect"></select>
+        <p id="callStatus" class="status"></p>
+        <button id="reloadBtn" class="secondary small" data-i18n="reloadTab" hidden></button>
+      </section>
+
+      <section class="card">
+        <div class="row between">
+          <span class="label" data-i18n="roomTitle"></span>
+          <button id="clearRoomBtn" class="link" data-i18n="clearRoom" hidden></button>
+        </div>
+        <div class="room">
+          <img id="roomImg" alt="" hidden />
+          <span id="roomEmpty" data-i18n="roomNone"></span>
+          <div id="captureOverlay" hidden><span id="captureCount"></span></div>
+        </div>
+        <button id="captureBtn" class="secondary" data-i18n="captureBtn"></button>
+        <p id="captureMsg" class="status"></p>
+      </section>
+
+      <button id="vanishBtn" class="primary" disabled></button>
+      <p id="notice" class="notice" hidden></p>
+
+      <section class="card">
+        <label class="toggle">
+          <input type="checkbox" id="snapToggle" />
+          <span>
+            <strong data-i18n="snapDetect"></strong>
+            <small data-i18n="snapDetectHint"></small>
+          </span>
+        </label>
+        <div id="snapBox" class="snapbox">
+          <div class="row between">
+            <span class="label" data-i18n="sensitivity"></span>
+            <span id="micState" class="pill small"></span>
+          </div>
+          <input type="range" id="sensitivity" min="0" max="100" step="1" />
+          <div class="meter"><div id="meterFill"></div><div class="meter-mark"></div></div>
+          <span id="snapFlash" data-i18n="snapHeard"></span>
+          <label class="toggle compact">
+            <input type="checkbox" id="doubleToggle" />
+            <span>
+              <strong data-i18n="doubleSnap"></strong>
+              <small data-i18n="doubleSnapHint"></small>
+            </span>
+          </label>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="thanosToggle" />
+          <span>
+            <strong data-i18n="thanosMode"></strong>
+            <small data-i18n="thanosHint"></small>
+          </span>
+        </label>
+      </section>
+    </main>
+
+    <footer>
+      <p id="shortcut"></p>
+      <p data-i18n="firstTest"></p>
+      <p data-i18n="privacy"></p>
+      <a href="#" id="testLink" data-i18n="testPage"></a>
+    </footer>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

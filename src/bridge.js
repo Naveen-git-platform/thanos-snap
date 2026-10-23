@@ -1,0 +1,102 @@
+// Isolated-world bridge between engine.js (page MAIN world) and the rest of
+// the extension: pushes settings and the room snapshot in, relays status,
+// levels and events out to the popup and service worker.
+(() => {
+  'use strict';
+
+  const NS = '__thanosSnap';
+  const frameKey = Math.random().toString(36).slice(2);
+  const ports = new Set();
+  let settings = null;
+  let roomUrl = null;
+  let loaded = false;
+  let status = null;
+  let booted = false;
+
+  const alive = () => {
+    try {
+      return !!chrome.runtime?.id;
+    } catch {
+      return false;
+    }
+  };
+
+  function toEngine(type, payload) {
+    window.postMessage({ [NS]: 'to-engine', type, payload }, '*');
+  }
+
+  function pushAll() {
+    if (!loaded) return;
+    toEngine('settings', settings);
+    toEngine('room', { dataUrl: roomUrl });
+    toEngine('hello');
+  }
+
+  function broadcast(type, payload) {
+    for (const port of ports) {
+      try {
+        port.postMessage({ type, payload, frame: frameKey });
+      } catch {
+        ports.delete(port);
+      }
+    }
+  }
+
+  chrome.storage.local.get(['settings', 'room']).then((r) => {
+    settings = r.settings || {};
+    roomUrl = r.room || null;
+    loaded = true;
+    pushAll();
+  });
+
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local') return;
+    if (changes.settings) {
+      settings = changes.settings.newValue || {};
+      toEngine('settings', settings);
+    }
+    if (changes.room) {
+      roomUrl = changes.room.newValue || null;
+      toEngine('room', { dataUrl: roomUrl });
+    }
+  });
+
+  window.addEventListener('message', (e) => {
+    if (e.source !== window) return;
+    const d = e.data;
+    if (!d || d[NS] !== 'from-engine' || !alive()) return;
+    switch (d.type) {
+      case 'ready':
+        pushAll();
+        break;
+      case 'status':
+        status = d.payload;
+        chrome.runtime.sendMessage({ type: 'status', status, boot: !booted }).catch(() => {});
+        booted = true;
+        broadcast('status', status);
+        break;
+      case 'roomCaptured':
+        roomUrl = d.payload.dataUrl;
+        chrome.storage.local.set({ room: roomUrl });
+        broadcast('roomCaptured', d.payload);
+        break;
+      default:
+        broadcast(d.type, d.payload);
+    }
+  });
+
+  chrome.runtime.onMessage.addListener((msg) => {
+    if (msg && msg.type === 'command') toEngine(msg.command, msg.payload);
+  });
+
+  chrome.runtime.onConnect.addListener((port) => {
+    if (port.name !== 'thanos-popup') return;
+    ports.add(port);
+    port.onMessage.addListener((msg) => {
+      if (msg && msg.type) toEngine(msg.type, msg.payload);
+    });
+    port.onDisconnect.addListener(() => ports.delete(port));
+    if (status) port.postMessage({ type: 'status', payload: status, frame: frameKey });
+    toEngine('hello');
+  });
+})();

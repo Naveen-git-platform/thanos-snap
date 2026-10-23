@@ -1,0 +1,89 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Thanos Snap test page</title>
+    <link rel="icon" href="../icons/icon32.png" />
+    <link rel="stylesheet" href="../popup/popup.css" />
+    <link rel="stylesheet" href="test.css" />
+    <!-- Same engine the call pages get, loaded directly. -->
+    <script src="../src/snap-analyzer.js"></script>
+    <script src="../src/engine.js"></script>
+  </head>
+  <body>
+    <header>
+      <img src="../icons/icon48.png" alt="" width="32" height="32" />
+      <h1 data-i18n="extName">Thanos Snap</h1>
+    </header>
+    <p class="intro" data-i18n="testIntro"></p>
+
+    <div class="videos">
+      <figure>
+        <video id="raw" autoplay muted playsinline></video>
+        <figcaption data-i18n="testRaw"></figcaption>
+      </figure>
+      <figure>
+        <video id="processed" autoplay muted playsinline></video>
+        <figcaption data-i18n="testProcessed"></figcaption>
+      </figure>
+    </div>
+
+    <div class="controls">
+      <section class="card">
+        <button id="camBtn" class="secondary"></button>
+        <p id="status" class="status"></p>
+        <button id="vanishBtn" class="primary" disabled></button>
+        <p id="notice" class="notice" hidden></p>
+      </section>
+
+      <section class="card">
+        <div class="row between">
+          <span class="label" data-i18n="roomTitle"></span>
+          <button id="clearRoomBtn" class="link" data-i18n="clearRoom" hidden></button>
+        </div>
+        <div class="room">
+          <img id="roomImg" alt="" hidden />
+          <span id="roomEmpty" data-i18n="roomNone"></span>
+        </div>
+        <button id="captureBtn" class="secondary" data-i18n="captureBtn" disabled></button>
+        <p id="captureMsg" class="status"></p>
+      </section>
+
+      <section class="card">
+        <label class="toggle">
+          <input type="checkbox" id="snapToggle" />
+          <span>
+            <strong data-i18n="snapDetect"></strong>
+            <small data-i18n="snapDetectHint"></small>
+          </span>
+        </label>
+        <div id="snapBox" class="snapbox">
+          <div class="row between">
+            <span class="label" data-i18n="sensitivity"></span>
+            <span id="micState" class="pill small"></span>
+          </div>
+          <input type="range" id="sensitivity" min="0" max="100" step="1" />
+          <div class="meter"><div id="meterFill"></div><div class="meter-mark"></div></div>
+          <span id="snapFlash" data-i18n="snapHeard"></span>
+          <label class="toggle compact">
+            <input type="checkbox" id="doubleToggle" />
+            <span>
+              <strong data-i18n="doubleSnap"></strong>
+              <small data-i18n="doubleSnapHint"></small>
+            </span>
+          </label>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="thanosToggle" />
+          <span>
+            <strong data-i18n="thanosMode"></strong>
+            <small data-i18n="thanosHint"></small>
+          </span>
+        </label>
+      </section>
+    </div>
+
+    <script src="test.js"></script>
+  </body>
+</html>
