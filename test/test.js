@@ -5,7 +5,22 @@
 'use strict';
 
 const NS = '__thanosSnap';
-const DEFAULTS = { thanos: true, snapEnabled: false, sensitivity: 0.5, doubleSnap: false };
+const DEFAULTS = {
+  thanos: true,
+  snapEnabled: false,
+  sensitivity: 0.5,
+  doubleSnap: false,
+  gestureEnabled: true,
+  gesture: 'Victory',
+};
+const GESTURES = [
+  ['Victory', '✌️'],
+  ['ILoveYou', '🤟'],
+  ['Thumb_Up', '👍'],
+  ['Open_Palm', '✋'],
+  ['Pointing_Up', '☝️'],
+  ['Closed_Fist', '✊'],
+];
 const ext = typeof chrome !== 'undefined' && !!chrome.storage?.local;
 const $ = (id) => document.getElementById(id);
 let fallback = {};
@@ -39,6 +54,9 @@ let streams = [];
 let snapCount = 0;
 let flashTimer = 0;
 let noticeTimer = 0;
+let gestureSeenTimer = 0;
+const notices = [];
+let recognizer = null;
 
 async function localize() {
   if (!ext) {
@@ -47,6 +65,28 @@ async function localize() {
     } catch {}
   }
   for (const el of document.querySelectorAll('[data-i18n]')) el.textContent = t(el.dataset.i18n);
+  for (const [name, emoji] of GESTURES) {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = `${emoji}  ${t('gesture_' + name)}`;
+    $('gestureSelect').append(opt);
+  }
+}
+
+// On this page the engine's gesture frames are recognised right here
+// (in call tabs they go to the extension's offscreen page instead).
+async function recognizeHere({ id, bitmap }) {
+  try {
+    recognizer ||= import('../src/gesture.js').then((m) => m.createGestureRecognizer());
+    const rec = await recognizer;
+    const result = rec.recognize(bitmap);
+    toEngine('gestureResult', { id, result });
+  } catch (err) {
+    recognizer = null;
+    toEngine('gestureResult', { id, error: String(err) });
+  } finally {
+    bitmap.close();
+  }
 }
 
 function toEngine(type, payload) {
@@ -108,7 +148,24 @@ window.addEventListener('message', (e) => {
               : '';
       if (p.phase === 'done') saveSettings({ sensitivity: 0.5 });
       break;
+    case 'gestureFrame':
+      recognizeHere(p);
+      break;
+    case 'gesture':
+      if (p.seen) {
+        const gs = $('gestureState');
+        const emoji = (GESTURES.find(([name]) => name === settings.gesture) || [])[1] || '';
+        gs.className = 'pill small gone';
+        gs.textContent = t('gestureSeen', [emoji]);
+        clearTimeout(gestureSeenTimer);
+        gestureSeenTimer = setTimeout(() => {
+          gestureSeenTimer = 0;
+          render();
+        }, 600);
+      }
+      break;
     case 'notice':
+      notices.push(p.key);
       $('notice').textContent = t(p.key);
       $('notice').hidden = false;
       clearTimeout(noticeTimer);
@@ -137,6 +194,17 @@ function render() {
   btn.disabled = !s.camera || !!s.capture || s.state === 'vanishing' || s.state === 'returning' ||
     (s.state === 'live' && !roomUrl);
   $('captureBtn').disabled = !s.camera || !!s.capture;
+  $('gestureToggle').checked = settings.gestureEnabled;
+  $('gestureSelect').value = settings.gesture;
+  $('gestureBox').hidden = !settings.gestureEnabled;
+  const gs = $('gestureState');
+  if (!gestureSeenTimer) {
+    gs.className = 'pill small' + (s.gesture === 'on' ? ' on' : '');
+    gs.textContent = t(
+      { on: 'gestureWatching', loading: 'gestureLoading', error: 'gestureError', off: 'micIdle' }[s.gesture] ||
+        'micIdle',
+    );
+  }
   $('snapToggle').checked = settings.snapEnabled;
   $('thanosToggle').checked = settings.thanos;
   $('doubleToggle').checked = settings.doubleSnap;
@@ -146,6 +214,7 @@ function render() {
   mic.hidden = !settings.snapEnabled;
   mic.className = 'pill small' + (s.detector === 'on' ? ' on' : '');
   mic.textContent = t(s.detector === 'on' ? 'micOn' : s.detector === 'off' ? 'micIdle' : 'micWaiting');
+  $('micFiltered').hidden = !s.micFiltered;
   $('learnBtn').textContent = t(s.learning ? 'cancel' : 'learnBtn');
   $('learnBtn').disabled = s.detector !== 'on' && !s.learning;
   $('resetLearnBtn').hidden = !s.calibrated || s.learning;
@@ -193,6 +262,8 @@ $('resetLearnBtn').addEventListener('click', () => {
   toEngine('calibration', { value: null });
   $('learnMsg').textContent = '';
 });
+$('gestureToggle').addEventListener('change', (e) => saveSettings({ gestureEnabled: e.target.checked }));
+$('gestureSelect').addEventListener('change', (e) => saveSettings({ gesture: e.target.value }));
 $('snapToggle').addEventListener('change', (e) => saveSettings({ snapEnabled: e.target.checked }));
 $('thanosToggle').addEventListener('change', (e) => saveSettings({ thanos: e.target.checked }));
 $('doubleToggle').addEventListener('change', (e) => saveSettings({ doubleSnap: e.target.checked }));
@@ -228,10 +299,10 @@ async function autotest() {
   const R = {};
   const phase = (p) => (document.body.dataset.phase = R.phase = p);
   try {
-    saveSettings({ ...DEFAULTS, thanos: true });
+    saveSettings({ ...DEFAULTS, thanos: true, gestureEnabled: false });
     await startCamera();
     await waitFor(() => status?.camera, 5000, 'camera');
-    await sleep(800);
+    await waitFor(() => window.__thanosSnapEngine.debug.frames >= 30, 10000, 'camera frames');
 
     phase('capture');
     toEngine('captureRoom', { leaveMs: 300, holdMs: 1000 });
@@ -312,11 +383,62 @@ async function autotest() {
     saveSettings({ snapEnabled: false });
     await waitFor(() => status.detector === 'off', 3000, 'detector off');
 
+    // Hand gesture: a canvas "camera" shows MediaPipe's sample photos.
+    // 👍 must not trigger; ✌️ must vanish, and ✌️ again must return.
+    const fixtures = new URLSearchParams(location.search).get('fixtures');
+    if (fixtures) {
+      phase('gesture');
+      const load = async (name) => createImageBitmap(await (await fetch(fixtures + name + '.jpg')).blob());
+      const photos = { victory: await load('victory'), thumb: await load('thumb_up') };
+      const canvas = document.createElement('canvas');
+      canvas.width = 640;
+      canvas.height = 480;
+      const ctx = canvas.getContext('2d');
+      let show = null;
+      let tick = 0;
+      const draw = setInterval(() => {
+        ctx.fillStyle = '#d9d5cf';
+        ctx.fillRect(0, 0, 640, 480);
+        if (show) ctx.drawImage(show, 320 - show.width / 2, 470 - show.height);
+        ctx.fillStyle = tick++ % 2 ? '#d9d5cf' : '#d9d5ce'; // keep frames flowing
+        ctx.fillRect(0, 0, 1, 1);
+      }, 40);
+      const handCam = await window.__thanosSnapEngine.debug.wrapStream(canvas.captureStream(25));
+      saveSettings({ gestureEnabled: true, gesture: 'Victory', thanos: false });
+      const t0 = performance.now();
+      await waitFor(() => status.gesture === 'on', 40000, 'gesture model');
+      R.gestureModelMs = Math.round(performance.now() - t0);
+
+      show = photos.thumb;
+      await sleep(1500);
+      R.otherGestureIgnored = status.state === 'live';
+
+      show = photos.victory;
+      let t1 = performance.now();
+      await waitFor(() => status.state !== 'live', 5000, 'gesture vanish');
+      R.gestureVanishMs = Math.round(performance.now() - t1);
+      await waitFor(() => status.state === 'vanished', 4000, 'gesture vanished');
+
+      show = null;
+      await sleep(1000);
+      show = photos.victory;
+      t1 = performance.now();
+      await waitFor(() => status.state !== 'vanished', 5000, 'gesture return');
+      R.gestureReturnMs = Math.round(performance.now() - t1);
+      await waitFor(() => status.state === 'live', 4000, 'gesture live');
+      show = null;
+      clearInterval(draw);
+      handCam.getTracks().forEach((tr) => tr.stop());
+      saveSettings({ gestureEnabled: false });
+    }
+
     stopCamera();
     await waitFor(() => !status.camera, 3000, 'camera released');
 
     const dbg = window.__thanosSnapEngine.debug;
     R.frames = dbg.frames;
+    R.workers = dbg.workers;
+    R.inline = dbg.inline;
     R.errors = dbg.errors;
     R.lastError = dbg.lastError;
     R.pass =
@@ -326,9 +448,12 @@ async function autotest() {
       R.rawVsRoom > R.vanishedVsRoom &&
       R.maskRecall > 0.95 &&
       R.maskFalsePositive < 0.05 &&
-      R.falseSnaps === 0;
+      R.falseSnaps === 0 &&
+      (!fixtures || (R.otherGestureIgnored && R.gestureVanishMs > 0 && R.gestureReturnMs > 0));
   } catch (err) {
     R.error = String(err);
+    R.notices = notices;
+    R.debug = { ...window.__thanosSnapEngine.debug, wrapStream: undefined, personMask: undefined };
     R.pass = false;
   }
   phase('done');

@@ -7,7 +7,7 @@ const zlib = require('zlib');
 
 const root = path.join(__dirname, '..');
 const { version } = JSON.parse(fs.readFileSync(path.join(root, 'manifest.json'), 'utf8'));
-const INCLUDE = ['manifest.json', 'src', 'popup', 'test', '_locales', 'icons', 'README.md', 'LICENSE'];
+const INCLUDE = ['manifest.json', 'src', 'popup', 'offscreen', 'test', '_locales', 'icons', 'vendor', 'README.md', 'LICENSE'];
 
 function walk(rel) {
   const abs = path.join(root, rel);

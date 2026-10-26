@@ -57,6 +57,39 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
   }).then(() => updateBadge(tabId));
 });
 
+// The hand-gesture recogniser (MediaPipe) lives in an offscreen document:
+// its own process, so model inference never slows the call page down.
+let creatingOffscreen = null;
+
+async function ensureOffscreen() {
+  const url = chrome.runtime.getURL('offscreen/offscreen.html');
+  const existing = await chrome.runtime.getContexts({ contextTypes: ['OFFSCREEN_DOCUMENT'], documentUrls: [url] });
+  if (existing.length) return;
+  creatingOffscreen ||= chrome.offscreen
+    .createDocument({
+      url: 'offscreen/offscreen.html',
+      reasons: ['WORKERS'],
+      justification: 'Recognise hand gestures in small camera frames, locally, to trigger the vanish effect.',
+    })
+    .catch((err) => {
+      if (!/single offscreen/i.test(String(err))) throw err;
+    })
+    .finally(() => (creatingOffscreen = null));
+  await creatingOffscreen;
+}
+
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (!msg) return;
+  if (msg.type === 'ensureOffscreen') {
+    ensureOffscreen().then(
+      () => sendResponse({ ok: true }),
+      (err) => sendResponse({ ok: false, error: String(err) }),
+    );
+    return true;
+  }
+  if (msg.type === 'offscreenIdle') chrome.offscreen.closeDocument().catch(() => {});
+});
+
 chrome.tabs.onRemoved.addListener((tabId) => {
   withTabs((tabs) => {
     delete tabs[tabId];

@@ -59,5 +59,18 @@
   "heard_snap": {"message": "Почуто клацання ($DB$ дБ)", "placeholders": {"db": {"content": "$1", "example": "20"}}},
   "heard_quiet": {"message": "Почуто звук, але надто тихий ($DB$ дБ). Підвищте чутливість або навчіть своє клацання.", "placeholders": {"db": {"content": "$1", "example": "8"}}},
   "heard_dull": {"message": "Почуто звук, але недостатньо різкий для клацання. Спробуйте «Навчити моє клацання».", "placeholders": {"db": {"content": "$1", "example": "8"}}},
-  "heard_long": {"message": "Почуто звук, але він надто довгий для клацання.", "placeholders": {"db": {"content": "$1", "example": "8"}}}
+  "heard_long": {"message": "Почуто звук, але він надто довгий для клацання.", "placeholders": {"db": {"content": "$1", "example": "8"}}},
+  "gestureDetect": {"message": "Жест рукою"},
+  "gestureHint": {"message": "Покажіть жест камері, щоб зникнути, і ще раз, щоб повернутися. Працює локально на зображенні з камери."},
+  "gestureWatching": {"message": "Стежу"},
+  "gestureLoading": {"message": "Завантаження моделі…"},
+  "gestureError": {"message": "Помилка моделі"},
+  "gestureSeen": {"message": "$EMOJI$ Є!", "placeholders": {"emoji": {"content": "$1", "example": "✌️"}}},
+  "gesture_Victory": {"message": "Два пальці (мир / V)"},
+  "gesture_ILoveYou": {"message": "Рок (я тебе кохаю)"},
+  "gesture_Thumb_Up": {"message": "Великий палець угору"},
+  "gesture_Open_Palm": {"message": "Відкрита долоня"},
+  "gesture_Pointing_Up": {"message": "Палець угору"},
+  "gesture_Closed_Fist": {"message": "Кулак"},
+  "micFiltered": {"message": "Браузер фільтрує шум цього мікрофона, через що клацання можуть губитися. Жести рукою тут працюють краще."}
 }

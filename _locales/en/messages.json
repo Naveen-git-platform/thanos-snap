@@ -59,5 +59,18 @@
   "heard_snap": {"message": "Heard a snap ($DB$ dB)", "placeholders": {"db": {"content": "$1", "example": "20"}}},
   "heard_quiet": {"message": "Heard a sound, but too quiet ($DB$ dB). Raise sensitivity or teach your snap.", "placeholders": {"db": {"content": "$1", "example": "8"}}},
   "heard_dull": {"message": "Heard a sound, but it wasn't sharp enough to be a snap. Try Teach my snap.", "placeholders": {"db": {"content": "$1", "example": "8"}}},
-  "heard_long": {"message": "Heard a sound, but it lasted too long to be a snap.", "placeholders": {"db": {"content": "$1", "example": "8"}}}
+  "heard_long": {"message": "Heard a sound, but it lasted too long to be a snap.", "placeholders": {"db": {"content": "$1", "example": "8"}}},
+  "gestureDetect": {"message": "Hand gesture"},
+  "gestureHint": {"message": "Show the gesture to the camera to vanish, show it again to come back. Runs locally on your camera image."},
+  "gestureWatching": {"message": "Watching"},
+  "gestureLoading": {"message": "Loading model…"},
+  "gestureError": {"message": "Model failed"},
+  "gestureSeen": {"message": "$EMOJI$ Seen!", "placeholders": {"emoji": {"content": "$1", "example": "✌️"}}},
+  "gesture_Victory": {"message": "Two fingers (peace / V)"},
+  "gesture_ILoveYou": {"message": "Rock on (I love you)"},
+  "gesture_Thumb_Up": {"message": "Thumbs up"},
+  "gesture_Open_Palm": {"message": "Open palm"},
+  "gesture_Pointing_Up": {"message": "Pointing up"},
+  "gesture_Closed_Fist": {"message": "Fist"},
+  "micFiltered": {"message": "Your browser is noise-filtering this microphone, which can swallow snaps. Hand gestures work better here."}
 }

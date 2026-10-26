@@ -8,7 +8,22 @@ const CALL_URLS = [
   'https://*.zoom.us/*',
   'https://*.zoom.com/*',
 ];
-const DEFAULTS = { thanos: true, snapEnabled: false, sensitivity: 0.5, doubleSnap: false };
+const DEFAULTS = {
+  thanos: true,
+  snapEnabled: false,
+  sensitivity: 0.5,
+  doubleSnap: false,
+  gestureEnabled: true,
+  gesture: 'Victory',
+};
+const GESTURES = [
+  ['Victory', '✌️'],
+  ['ILoveYou', '🤟'],
+  ['Thumb_Up', '👍'],
+  ['Open_Palm', '✋'],
+  ['Pointing_Up', '☝️'],
+  ['Closed_Fist', '✊'],
+];
 
 const $ = (id) => document.getElementById(id);
 const t = (key, subs) => chrome.i18n.getMessage(key, subs) || key;
@@ -20,9 +35,16 @@ let frames = {};
 let gotStatus = false;
 let noticeTimer = 0;
 let flashTimer = 0;
+let gestureSeenTimer = 0;
 
 for (const el of document.querySelectorAll('[data-i18n]')) el.textContent = t(el.dataset.i18n);
 document.documentElement.lang = chrome.i18n.getUILanguage();
+for (const [name, emoji] of GESTURES) {
+  const opt = document.createElement('option');
+  opt.value = name;
+  opt.textContent = `${emoji}  ${t('gesture_' + name)}`;
+  $('gestureSelect').append(opt);
+}
 
 function serviceName(url) {
   const host = new URL(url).hostname;
@@ -46,6 +68,8 @@ function aggregate() {
     capture: (cam && cam.capture) || null,
     calibrated: list.some((f) => f.calibrated),
     learning: !!(cam && cam.learning),
+    gesture: cam ? cam.gesture : 'off',
+    micFiltered: !!(cam && cam.micFiltered),
   };
 }
 
@@ -106,6 +130,17 @@ function render() {
     ? t(s.detector === 'on' ? 'micOn' : s.detector === 'off' ? 'micIdle' : 'micWaiting')
     : '';
   mic.hidden = !settings.snapEnabled;
+  $('micFiltered').hidden = !s.micFiltered;
+
+  const gs = $('gestureState');
+  gs.hidden = !settings.gestureEnabled;
+  if (!gestureSeenTimer) {
+    gs.className = 'pill small' + (s.gesture === 'on' ? ' on' : '');
+    gs.textContent = t(
+      { on: 'gestureWatching', loading: 'gestureLoading', error: 'gestureError', off: 'micIdle' }[s.gesture] ||
+        'micIdle',
+    );
+  }
 
   $('learnBtn').textContent = t(s.learning ? 'cancel' : 'learnBtn');
   $('learnBtn').disabled = s.detector !== 'on' && !s.learning;
@@ -139,6 +174,9 @@ function renderRoom(url) {
 }
 
 function renderSettings() {
+  $('gestureToggle').checked = settings.gestureEnabled;
+  $('gestureSelect').value = settings.gesture;
+  $('gestureBox').hidden = !settings.gestureEnabled;
   $('snapToggle').checked = settings.snapEnabled;
   $('thanosToggle').checked = settings.thanos;
   $('doubleToggle').checked = settings.doubleSnap;
@@ -201,6 +239,19 @@ function onPortMessage(msg) {
     }
     case 'learn':
       renderLearn(msg.payload);
+      break;
+    case 'gesture':
+      if (msg.payload.seen) {
+        const gs = $('gestureState');
+        const emoji = (GESTURES.find(([name]) => name === settings.gesture) || [])[1] || '';
+        gs.className = 'pill small gone';
+        gs.textContent = t('gestureSeen', [emoji]);
+        clearTimeout(gestureSeenTimer);
+        gestureSeenTimer = setTimeout(() => {
+          gestureSeenTimer = 0;
+          render();
+        }, 600);
+      }
       break;
   }
 }
@@ -292,6 +343,8 @@ $('reloadBtn').addEventListener('click', () => {
   if (tabId != null) chrome.tabs.reload(tabId);
   window.close();
 });
+$('gestureToggle').addEventListener('change', (e) => saveSettings({ gestureEnabled: e.target.checked }));
+$('gestureSelect').addEventListener('change', (e) => saveSettings({ gesture: e.target.value }));
 $('snapToggle').addEventListener('change', (e) => saveSettings({ snapEnabled: e.target.checked }));
 $('thanosToggle').addEventListener('change', (e) => saveSettings({ thanos: e.target.checked }));
 $('doubleToggle').addEventListener('change', (e) => saveSettings({ doubleSnap: e.target.checked }));

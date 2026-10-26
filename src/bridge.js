@@ -44,6 +44,35 @@
     }
   }
 
+  // Hand-gesture frames go to the offscreen recogniser page. Extension
+  // messaging only carries JSON, so frames travel as small JPEGs.
+  let encoder = null;
+  async function recognize(bitmap) {
+    try {
+      if (!encoder || encoder.width !== bitmap.width || encoder.height !== bitmap.height) {
+        encoder = new OffscreenCanvas(bitmap.width, bitmap.height);
+      }
+      encoder.getContext('2d').drawImage(bitmap, 0, 0);
+      bitmap.close();
+      const blob = await encoder.convertToBlob({ type: 'image/jpeg', quality: 0.8 });
+      const image = await new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result);
+        r.onerror = () => reject(r.error);
+        r.readAsDataURL(blob);
+      });
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const res = await chrome.runtime.sendMessage({ type: 'recognize', image }).catch(() => null);
+        if (res) return res;
+        // No recogniser page yet (or it was closed while idle): start it.
+        await chrome.runtime.sendMessage({ type: 'ensureOffscreen' }).catch(() => null);
+      }
+      return { error: 'recogniser unavailable' };
+    } catch (err) {
+      return { error: String(err) };
+    }
+  }
+
   chrome.storage.local.get(['settings', 'room', 'calibration']).then((r) => {
     settings = r.settings || {};
     roomUrl = r.room || null;
@@ -77,10 +106,18 @@
         pushAll();
         break;
       case 'status':
+        // Start loading the gesture model as soon as a camera is on, so it
+        // is ready by the time the user shows a gesture.
+        if (d.payload.camera && !status?.camera && settings?.gestureEnabled !== false) {
+          chrome.runtime.sendMessage({ type: 'ensureOffscreen' }).catch(() => {});
+        }
         status = d.payload;
         chrome.runtime.sendMessage({ type: 'status', status, boot: !booted }).catch(() => {});
         booted = true;
         broadcast('status', status);
+        break;
+      case 'gestureFrame':
+        recognize(d.payload.bitmap).then((res) => toEngine('gestureResult', { id: d.payload.id, ...res }));
         break;
       case 'calibrated':
         calibration = d.payload.value;

@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="test.css" />
     <!-- Same engine the call pages get, loaded directly. -->
     <script src="../src/snap-analyzer.js"></script>
+    <script src="../src/compositor.js"></script>
     <script src="../src/engine.js"></script>
   </head>
   <body>
@@ -52,6 +53,19 @@
 
       <section class="card">
         <label class="toggle">
+          <input type="checkbox" id="gestureToggle" />
+          <span>
+            <strong data-i18n="gestureDetect"></strong>
+            <small data-i18n="gestureHint"></small>
+          </span>
+        </label>
+        <div id="gestureBox" class="snapbox">
+          <div class="row between">
+            <select id="gestureSelect"></select>
+            <span id="gestureState" class="pill small"></span>
+          </div>
+        </div>
+        <label class="toggle">
           <input type="checkbox" id="snapToggle" />
           <span>
             <strong data-i18n="snapDetect"></strong>
@@ -67,6 +81,7 @@
           <div class="meter"><div id="meterFill"></div><div class="meter-mark"></div></div>
           <span id="snapFlash" data-i18n="snapHeard"></span>
           <p id="heard" class="status"></p>
+          <p id="micFiltered" class="status warn" data-i18n="micFiltered" hidden></p>
           <button id="learnBtn" class="secondary" data-i18n="learnBtn"></button>
           <div class="row between">
             <p id="learnMsg" class="status"></p>

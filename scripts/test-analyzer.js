@@ -121,6 +121,12 @@ const check = (name, got, want) => cases.push({ name, got, want, ok: got === wan
   check('realistic snaps on a quiet low-gain mic', run(b), 2);
 }
 {
+  const b = silence(4, 0.0003);
+  addRealSnap(b, 1.0, 0.004);
+  addRealSnap(b, 2.5, 0.004);
+  check('distant snaps (arm length from a laptop mic)', run(b), 2);
+}
+{
   const b = silence(3, 0.002);
   addSnap(b, 1.0, 0.004);
   check('faint click near the noise floor at low sensitivity', run(b, 0), 0);
