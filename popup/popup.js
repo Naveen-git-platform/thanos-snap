@@ -44,6 +44,8 @@ function aggregate() {
     hasRoom: list.some((f) => f.hasRoom),
     detector: cam ? cam.detector : 'off',
     capture: (cam && cam.capture) || null,
+    calibrated: list.some((f) => f.calibrated),
+    learning: !!(cam && cam.learning),
   };
 }
 
@@ -104,6 +106,28 @@ function render() {
     ? t(s.detector === 'on' ? 'micOn' : s.detector === 'off' ? 'micIdle' : 'micWaiting')
     : '';
   mic.hidden = !settings.snapEnabled;
+
+  $('learnBtn').textContent = t(s.learning ? 'cancel' : 'learnBtn');
+  $('learnBtn').disabled = s.detector !== 'on' && !s.learning;
+  $('resetLearnBtn').hidden = !s.calibrated || s.learning;
+  if (!s.learning && !$('learnMsg').dataset.sticky) {
+    $('learnMsg').textContent = s.calibrated ? t('learnActive') : '';
+  }
+}
+
+function renderLearn(p) {
+  const el = $('learnMsg');
+  el.dataset.sticky = p.phase === 'listening' ? '' : '1';
+  el.className = 'status' + (p.phase === 'done' ? ' ok' : p.phase === 'failed' ? ' warn' : '');
+  el.textContent =
+    p.phase === 'listening'
+      ? t('learnListening', [String(p.count)])
+      : p.phase === 'done'
+        ? t('learnDone')
+        : p.phase === 'failed'
+          ? t('learnFailed')
+          : '';
+  if (p.phase === 'done') saveSettings({ sensitivity: 0.5 });
 }
 
 function renderRoom(url) {
@@ -167,6 +191,16 @@ function onPortMessage(msg) {
     }
     case 'notice':
       showNotice(msg.payload.key);
+      break;
+    case 'transient': {
+      const { verdict, db } = msg.payload;
+      const el = $('heard');
+      el.className = 'status' + (verdict === 'snap' ? ' ok' : '');
+      el.textContent = t('heard_' + verdict, [String(db)]);
+      break;
+    }
+    case 'learn':
+      renderLearn(msg.payload);
       break;
   }
 }
@@ -240,6 +274,15 @@ $('captureBtn').addEventListener('click', () => {
     $('captureMsg').textContent = '';
     send('captureRoom', {});
   }
+});
+$('learnBtn').addEventListener('click', () => {
+  $('learnMsg').dataset.sticky = '';
+  send(aggregate().learning ? 'cancelLearn' : 'learnSnap');
+});
+$('resetLearnBtn').addEventListener('click', () => {
+  chrome.storage.local.remove('calibration');
+  $('learnMsg').dataset.sticky = '';
+  $('learnMsg').textContent = '';
 });
 $('clearRoomBtn').addEventListener('click', () => {
   chrome.storage.local.remove('room');

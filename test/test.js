@@ -33,6 +33,8 @@ const store = ext
 let settings = { ...DEFAULTS };
 let status = null;
 let roomUrl = null;
+let calibration = null;
+let learnResult = null;
 let streams = [];
 let snapCount = 0;
 let flashTimer = 0;
@@ -60,6 +62,7 @@ window.addEventListener('message', (e) => {
     case 'ready':
       toEngine('settings', settings);
       toEngine('room', { dataUrl: roomUrl });
+      toEngine('calibration', { value: calibration });
       break;
     case 'status':
       status = p;
@@ -83,6 +86,27 @@ window.addEventListener('message', (e) => {
       $('snapFlash').classList.add('on');
       clearTimeout(flashTimer);
       flashTimer = setTimeout(() => $('snapFlash').classList.remove('on'), 120);
+      break;
+    case 'transient':
+      $('heard').className = 'status' + (p.verdict === 'snap' ? ' ok' : '');
+      $('heard').textContent = t('heard_' + p.verdict, [String(p.db)]);
+      break;
+    case 'calibrated':
+      calibration = p.value;
+      store.set({ calibration });
+      break;
+    case 'learn':
+      learnResult = p.phase;
+      $('learnMsg').className = 'status' + (p.phase === 'done' ? ' ok' : p.phase === 'failed' ? ' warn' : '');
+      $('learnMsg').textContent =
+        p.phase === 'listening'
+          ? t('learnListening', [String(p.count)])
+          : p.phase === 'done'
+            ? t('learnDone')
+            : p.phase === 'failed'
+              ? t('learnFailed')
+              : '';
+      if (p.phase === 'done') saveSettings({ sensitivity: 0.5 });
       break;
     case 'notice':
       $('notice').textContent = t(p.key);
@@ -122,6 +146,9 @@ function render() {
   mic.hidden = !settings.snapEnabled;
   mic.className = 'pill small' + (s.detector === 'on' ? ' on' : '');
   mic.textContent = t(s.detector === 'on' ? 'micOn' : s.detector === 'off' ? 'micIdle' : 'micWaiting');
+  $('learnBtn').textContent = t(s.learning ? 'cancel' : 'learnBtn');
+  $('learnBtn').disabled = s.detector !== 'on' && !s.learning;
+  $('resetLearnBtn').hidden = !s.calibrated || s.learning;
 }
 
 function saveSettings(patch) {
@@ -158,6 +185,13 @@ $('clearRoomBtn').addEventListener('click', () => {
   setRoom(null);
   toEngine('room', { dataUrl: null });
   render();
+});
+$('learnBtn').addEventListener('click', () => toEngine(status?.learning ? 'cancelLearn' : 'learnSnap'));
+$('resetLearnBtn').addEventListener('click', () => {
+  calibration = null;
+  store.remove('calibration');
+  toEngine('calibration', { value: null });
+  $('learnMsg').textContent = '';
 });
 $('snapToggle').addEventListener('change', (e) => saveSettings({ snapEnabled: e.target.checked }));
 $('thanosToggle').addEventListener('change', (e) => saveSettings({ thanos: e.target.checked }));
@@ -226,6 +260,39 @@ async function autotest() {
     await sleep(600);
     R.liveVsRoom = meanDiff($('processed'), $('roomImg'));
 
+    // Person mask must survive the camera re-adjusting exposure and white
+    // balance when you step back in: room 30% brighter and warmer + a person.
+    {
+      const gw = 160;
+      const gh = 90;
+      const room = new Uint8ClampedArray(gw * gh * 4);
+      const cur = new Uint8ClampedArray(gw * gh * 4);
+      let inside = 0;
+      for (let y = 0; y < gh; y++)
+        for (let x = 0; x < gw; x++) {
+          const o = (y * gw + x) * 4;
+          const v = 60 + ((x * 7 + y * 13) % 90) + Math.sin(x / 5) * 15;
+          room[o] = v + 20;
+          room[o + 1] = v;
+          room[o + 2] = v - 10;
+          const person = ((x - 80) / 30) ** 2 + ((y - 75) / 45) ** 2 < 1;
+          inside += person;
+          cur[o] = person ? 200 : room[o] * 1.35 + (x % 3);
+          cur[o + 1] = person ? 150 : room[o + 1] * 1.3 + (y % 2);
+          cur[o + 2] = person ? 120 : room[o + 2] * 1.2;
+        }
+      const mask = window.__thanosSnapEngine.debug.personMask(cur, room, gw, gh);
+      let hit = 0;
+      let falsePos = 0;
+      for (let y = 0; y < gh; y++)
+        for (let x = 0; x < gw; x++) {
+          const person = ((x - 80) / 30) ** 2 + ((y - 75) / 45) ** 2 < 1;
+          if (mask[y * gw + x]) person ? hit++ : falsePos++;
+        }
+      R.maskRecall = +(hit / inside).toFixed(3);
+      R.maskFalsePositive = +(falsePos / (gw * gh - inside)).toFixed(3);
+    }
+
     // Plain fade mode round trip.
     saveSettings({ thanos: false });
     toEngine('vanish');
@@ -257,6 +324,8 @@ async function autotest() {
       R.frames > 60 &&
       R.vanishedVsRoom < 6 &&
       R.rawVsRoom > R.vanishedVsRoom &&
+      R.maskRecall > 0.95 &&
+      R.maskFalsePositive < 0.05 &&
       R.falseSnaps === 0;
   } catch (err) {
     R.error = String(err);
@@ -269,11 +338,13 @@ async function autotest() {
 
 (async () => {
   await localize();
-  const stored = await store.get(['settings', 'room']);
+  const stored = await store.get(['settings', 'room', 'calibration']);
   settings = { ...DEFAULTS, ...stored.settings };
+  calibration = stored.calibration || null;
   setRoom(stored.room || null);
   toEngine('settings', settings);
   toEngine('room', { dataUrl: roomUrl });
+  toEngine('calibration', { value: calibration });
   toEngine('hello');
   render();
   if (location.search.includes('autotest')) autotest();

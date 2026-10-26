@@ -66,6 +66,12 @@
           <input type="range" id="sensitivity" min="0" max="100" step="1" />
           <div class="meter"><div id="meterFill"></div><div class="meter-mark"></div></div>
           <span id="snapFlash" data-i18n="snapHeard"></span>
+          <p id="heard" class="status"></p>
+          <button id="learnBtn" class="secondary" data-i18n="learnBtn"></button>
+          <div class="row between">
+            <p id="learnMsg" class="status"></p>
+            <button id="resetLearnBtn" class="link" data-i18n="learnReset" hidden></button>
+          </div>
           <label class="toggle compact">
             <input type="checkbox" id="doubleToggle" />
             <span>

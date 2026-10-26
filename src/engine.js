@@ -46,6 +46,8 @@
   let roomVersion = 0;
   let capture = null;
   let detector = null;
+  let calibration = null; // thresholds learned from the user's own snaps
+  let learning = null;
   let lastSnapAt = 0;
   let lastToggleAt = 0;
 
@@ -67,6 +69,8 @@
       hasRoom: !!room,
       detector: detector ? detector.status : 'off',
       capture: capture ? capture.phase : null,
+      calibrated: !!calibration,
+      learning: !!learning,
     });
   }
 
@@ -100,6 +104,17 @@
         break;
       case 'cancelCapture':
         endCapture(false);
+        break;
+      case 'calibration':
+        calibration = p.value || null;
+        if (detector && detector.analyzer) detector.analyzer.configure(null, calibration);
+        emitStatus();
+        break;
+      case 'learnSnap':
+        startLearning();
+        break;
+      case 'cancelLearn':
+        endLearning(false);
         break;
     }
   });
@@ -419,75 +434,186 @@
     return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
   }
 
-  // Person mask by background subtraction against the room snapshot, then
-  // one particle (or more) per person cell.
-  function buildDust(frame, s) {
-    const { gw, gh, cell, w, h } = s;
-    s.gridCtx.drawImage(frame, 0, 0, gw, gh);
-    const cur = s.gridCtx.getImageData(0, 0, gw, gh).data;
-    const bg = s.roomGrid;
+  function median(values) {
+    const a = Float32Array.from(values).sort();
+    return a.length ? a[a.length >> 1] : 0;
+  }
+
+  // Grid cells (gw x gh) where the live frame differs from the empty room,
+  // i.e. where the person is.
+  function personMask(cur, bg, gw, gh) {
     const n = gw * gh;
 
-    let raw = new Uint8Array(n);
+    // The camera re-adjusts exposure and white balance when you step back
+    // in, which shifts the colour of the whole frame. Most of the frame is
+    // still background, so the median per-channel ratio is that shift.
+    const gain = [0, 1, 2].map((c) => {
+      const r = [];
+      for (let i = 0; i < n; i++) if (bg[i * 4 + c] > 12) r.push(cur[i * 4 + c] / bg[i * 4 + c]);
+      const m = median(r);
+      return m > 0.4 && m < 2.5 ? m : 1;
+    });
+
+    const diff = new Float32Array(n);
     for (let i = 0; i < n; i++) {
       const o = i * 4;
-      const diff = Math.abs(cur[o] - bg[o]) + Math.abs(cur[o + 1] - bg[o + 1]) + Math.abs(cur[o + 2] - bg[o + 2]);
-      raw[i] = diff > 75 ? 1 : 0;
+      diff[i] =
+        (Math.abs(cur[o] - bg[o] * gain[0]) +
+          Math.abs(cur[o + 1] - bg[o + 1] * gain[1]) +
+          Math.abs(cur[o + 2] - bg[o + 2] * gain[2])) /
+        3;
     }
-    // Drop speckles, then grow by one cell.
-    const clean = new Uint8Array(n);
-    const person = new Uint8Array(n);
-    let count = 0;
-    for (let y = 0; y < gh; y++) {
+    // Threshold well above the background's own noise (its median diff).
+    const thr = Math.max(14, median(diff) * 3 + 6);
+    const raw = new Uint8Array(n);
+    for (let i = 0; i < n; i++) raw[i] = diff[i] > thr ? 1 : 0;
+
+    // Close small gaps: grow by one cell, then keep cells with a full
+    // neighbourhood of grown cells (erode).
+    const grown = dilate(raw, gw, gh);
+    const closed = new Uint8Array(n);
+    for (let y = 0; y < gh; y++)
       for (let x = 0; x < gw; x++) {
-        if (!raw[y * gw + x]) continue;
-        let nb = 0;
-        for (let dy = -1; dy <= 1; dy++)
-          for (let dx = -1; dx <= 1; dx++) {
-            const xx = x + dx;
-            const yy = y + dy;
-            if ((dx || dy) && xx >= 0 && yy >= 0 && xx < gw && yy < gh) nb += raw[yy * gw + xx];
+        let all = 1;
+        for (let dy = -1; dy <= 1 && all; dy++)
+          for (let dx = -1; dx <= 1 && all; dx++) {
+            const xx = Math.min(gw - 1, Math.max(0, x + dx));
+            const yy = Math.min(gh - 1, Math.max(0, y + dy));
+            all = grown[yy * gw + xx];
           }
-        if (nb >= 3) clean[y * gw + x] = 1;
+        closed[y * gw + x] = all;
+      }
+
+    // Keep big blobs only (a person, not noise or a flickering screen).
+    const label = new Int32Array(n).fill(-1);
+    const queue = new Int32Array(n);
+    const blobs = [];
+    for (let i = 0; i < n; i++) {
+      if (!closed[i] || label[i] >= 0) continue;
+      const id = blobs.length;
+      let head = 0;
+      let tail = 0;
+      queue[tail++] = i;
+      label[i] = id;
+      while (head < tail) {
+        const j = queue[head++];
+        const x = j % gw;
+        const y = (j / gw) | 0;
+        const nbs = [x > 0 ? j - 1 : -1, x < gw - 1 ? j + 1 : -1, y > 0 ? j - gw : -1, y < gh - 1 ? j + gw : -1];
+        for (const q of nbs)
+          if (q >= 0 && closed[q] && label[q] < 0) {
+            label[q] = id;
+            queue[tail++] = q;
+          }
+      }
+      blobs.push(tail);
+    }
+    const biggest = Math.max(0, ...blobs);
+    const keep = blobs.map((size) => size >= n * 0.015 || size === biggest);
+    const mask = new Uint8Array(n);
+    for (let i = 0; i < n; i++) mask[i] = label[i] >= 0 && keep[label[i]] && biggest >= n * 0.004 ? 1 : 0;
+
+    // Fill holes: background is whatever is reachable from the frame edge
+    // without crossing the person.
+    const outside = new Uint8Array(n);
+    let head = 0;
+    let tail = 0;
+    for (let i = 0; i < n; i++) {
+      const x = i % gw;
+      const y = (i / gw) | 0;
+      if ((x === 0 || y === 0 || x === gw - 1 || y === gh - 1) && !mask[i]) {
+        outside[i] = 1;
+        queue[tail++] = i;
       }
     }
-    for (let y = 0; y < gh; y++) {
+    while (head < tail) {
+      const j = queue[head++];
+      const x = j % gw;
+      const y = (j / gw) | 0;
+      const nbs = [x > 0 ? j - 1 : -1, x < gw - 1 ? j + 1 : -1, y > 0 ? j - gw : -1, y < gh - 1 ? j + gw : -1];
+      for (const q of nbs)
+        if (q >= 0 && !mask[q] && !outside[q]) {
+          outside[q] = 1;
+          queue[tail++] = q;
+        }
+    }
+    for (let i = 0; i < n; i++) if (!outside[i]) mask[i] = 1;
+    return dilate(mask, gw, gh);
+  }
+
+  function dilate(src, gw, gh) {
+    const out = new Uint8Array(src.length);
+    for (let y = 0; y < gh; y++)
       for (let x = 0; x < gw; x++) {
         let on = 0;
         for (let dy = -1; dy <= 1 && !on; dy++)
           for (let dx = -1; dx <= 1 && !on; dx++) {
             const xx = x + dx;
             const yy = y + dy;
-            if (xx >= 0 && yy >= 0 && xx < gw && yy < gh && clean[yy * gw + xx]) on = 1;
+            if (xx >= 0 && yy >= 0 && xx < gw && yy < gh && src[yy * gw + xx]) on = 1;
           }
-        person[y * gw + x] = on;
-        count += on;
+        out[y * gw + x] = on;
       }
-    }
-    // Nothing differs from the room (lighting matched perfectly, or the user
-    // isn't in frame): fall back to a typical head-and-shoulders region.
-    if (count < n * 0.005) {
+    return out;
+  }
+
+  // Typical webcam framing: head and shoulders, centred, touching the bottom.
+  function inFraming(x, y, gw, gh, widen = 1) {
+    const nx = (x / gw - 0.5) / (0.3 * widen);
+    const ny = (y / gh - 0.8) / (0.65 * widen);
+    return nx * nx + ny * ny < 1;
+  }
+
+  // Person mask, then one particle (or more) per person cell.
+  function buildDust(frame, s) {
+    const { gw, gh, cell, w, h } = s;
+    s.gridCtx.drawImage(frame, 0, 0, gw, gh);
+    const cur = s.gridCtx.getImageData(0, 0, gw, gh).data;
+    const n = gw * gh;
+    const person = personMask(cur, s.roomGrid, gw, gh);
+    let count = person.reduce((a, b) => a + b, 0);
+
+    // Nothing differs from the room: assume the usual framing. Almost
+    // everything differs (camera moved, lights changed): trust only the
+    // part of the change that sits where a person usually is.
+    if (count < n * 0.005 || count > n * 0.7) {
+      const widen = count < n * 0.005 ? 1 : 1.4;
+      const fallback = count < n * 0.005;
       count = 0;
       for (let y = 0; y < gh; y++)
         for (let x = 0; x < gw; x++) {
-          const nx = (x / gw - 0.5) / 0.28;
-          const ny = (y / gh - 0.75) / 0.6;
-          const on = nx * nx + ny * ny < 1 ? 1 : 0;
-          person[y * gw + x] = on;
+          const i = y * gw + x;
+          const on = inFraming(x, y, gw, gh, widen) && (fallback || person[i]) ? 1 : 0;
+          person[i] = on;
           count += on;
         }
     }
-    raw = null;
 
-    // Dissolve time per cell: a sweep from bottom-left to top-right, broken
-    // up by clumpy noise so it crumbles in patches.
+    // Dissolve time per person cell: a sweep across the person from
+    // bottom-left to top-right, broken up by clumpy noise so it crumbles in
+    // patches.
+    let x0 = gw;
+    let x1 = 0;
+    let y0 = gh;
+    let y1 = 0;
+    for (let i = 0; i < n; i++)
+      if (person[i]) {
+        const x = i % gw;
+        const y = (i / gw) | 0;
+        x0 = Math.min(x0, x);
+        x1 = Math.max(x1, x);
+        y0 = Math.min(y0, y);
+        y1 = Math.max(y1, y);
+      }
+    const bw = Math.max(1, x1 - x0);
+    const bh = Math.max(1, y1 - y0);
     const td = new Float32Array(n);
     for (let y = 0; y < gh; y++)
       for (let x = 0; x < gw; x++) {
-        const sweep = 0.6 * (x / gw) + 0.4 * (1 - y / gh);
+        const sweep = 0.6 * ((x - x0) / bw) + 0.4 * (1 - (y - y0) / bh);
         const clump = valueNoise(x / 7, y / 7);
         const fine = hash(x + 911, y + 37);
-        td[y * gw + x] = DUST_SWEEP_SEC * Math.min(1, 0.55 * sweep + 0.3 * clump + 0.15 * fine);
+        td[y * gw + x] = DUST_SWEEP_SEC * Math.min(1, Math.max(0, 0.55 * sweep + 0.3 * clump + 0.15 * fine));
       }
 
     const MAX = 7000;
@@ -537,17 +663,33 @@
       }
     }
     P.n = k;
-    return { w, h, td, P };
+    return { w, h, td, person, P };
   }
 
-  // "out": cell i shows the room once t >= td[i]; its particles fly off.
+  const smoothstep = (a, b, x) => {
+    const k = Math.min(1, Math.max(0, (x - a) / (b - a)));
+    return k * k * (3 - 2 * k);
+  };
+
+  // Only the person crumbles:
+  // "out": person cell i shows the room once t >= td[i] and its particles
+  //        fly off; the background crossfades to the snapshot smoothly.
   // "in":  the same film played backwards (particles fly in, cells land).
   function renderDust(s, fx, dir, t) {
     const { gw, gh, w, h, ctx, maskCtx, maskData } = s;
     const alpha = maskData.data;
     const n = gw * gh;
-    const td = fx.td;
+    const { td, person } = fx;
+    const bg =
+      dir === 'out'
+        ? smoothstep(0, DUST_SWEEP_SEC, t)
+        : 1 - smoothstep(DUST_LIFE_MAX * 0.5, DUST_SWEEP_SEC + DUST_LIFE_MAX, t);
+    const bgAlpha = Math.round(bg * 255);
     for (let i = 0; i < n; i++) {
+      if (!person[i]) {
+        alpha[i * 4 + 3] = bgAlpha;
+        continue;
+      }
       const showsRoom = dir === 'out' ? t >= td[i] : t < td[i] + DUST_LIFE_MAX;
       alpha[i * 4 + 3] = showsRoom ? 255 : 0;
     }
@@ -681,7 +823,10 @@
   function syncDetector() {
     const want = supported && !!settings.snapEnabled && pipelines.size > 0;
     if (want && !detector) startDetector();
-    else if (!want && detector) stopDetector();
+    else if (!want && detector) {
+      endLearning(false);
+      stopDetector();
+    }
     else if (detector && detector.analyzer) detector.analyzer.setSensitivity(settings.sensitivity);
   }
 
@@ -703,7 +848,7 @@
       const sp = ac.createScriptProcessor(1024, 1, 1);
       const mute = ac.createGain();
       mute.gain.value = 0;
-      const analyzer = new SnapAnalyzer(ac.sampleRate, settings.sensitivity);
+      const analyzer = new SnapAnalyzer(ac.sampleRate, settings.sensitivity, calibration);
       let lastLevelPost = 0;
       sp.onaudioprocess = (e) => {
         const snaps = analyzer.process(e.inputBuffer.getChannelData(0));
@@ -712,7 +857,8 @@
           lastLevelPost = now;
           post('level', { value: analyzer.takeLevel() });
         }
-        if (snaps) onSnap();
+        for (const ev of analyzer.takeEvents()) onTransient(ev);
+        if (snaps && !learning) onSnap();
       };
       source.connect(sp);
       sp.connect(mute);
@@ -761,6 +907,47 @@
     emitStatus();
   }
 
+  // Every sharp sound, judged: lets the popup say why a snap didn't count.
+  function onTransient(ev) {
+    if (learning) {
+      if (ev.snr < 4) return;
+      learning.samples.push(ev);
+      post('learn', { phase: 'listening', count: learning.samples.length });
+      if (learning.samples.length >= 3) endLearning(true);
+      return;
+    }
+    post('transient', { verdict: ev.verdict, db: Math.round(10 * Math.log10(ev.snr)) });
+  }
+
+  function startLearning() {
+    if (!detector || detector.status !== 'on') return notice('learnNeedsMic');
+    endLearning(false);
+    learning = { samples: [], timer: setTimeout(() => endLearning(true), 10000) };
+    post('learn', { phase: 'listening', count: 0 });
+    emitStatus();
+  }
+
+  function endLearning(finish) {
+    const l = learning;
+    if (!l) return;
+    learning = null;
+    clearTimeout(l.timer);
+    if (finish) {
+      const cal = SnapAnalyzer.calibrate(l.samples);
+      if (cal) {
+        calibration = cal;
+        if (detector && detector.analyzer) detector.analyzer.configure(0.5, cal);
+        post('calibrated', { value: cal });
+        post('learn', { phase: 'done', count: l.samples.length });
+      } else {
+        post('learn', { phase: 'failed', count: l.samples.length });
+      }
+    } else {
+      post('learn', { phase: 'cancelled', count: l.samples.length });
+    }
+    emitStatus();
+  }
+
   function onSnap() {
     const now = performance.now();
     post('snap', {});
@@ -774,6 +961,8 @@
     if (now - lastToggleAt < 1000) return;
     toggle();
   }
+
+  debug.personMask = personMask;
 
   post('ready', { supported });
   emitStatus();

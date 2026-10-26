@@ -40,10 +40,24 @@ function addBeep(buf, atSec, freq = 1000, sec = 0.1, amp = 0.3) {
   for (let i = 0; i < sec * SR; i++) buf[start + i] += Math.sin((2 * Math.PI * freq * i) / SR) * amp;
 }
 
-function run(buf, sensitivity = 0.5) {
-  const a = new SnapAnalyzer(SR, sensitivity);
+// Real snaps have a low "thump" from the finger hitting the palm under the
+// crack, and laptop mics pick them up fairly quietly.
+function addRealSnap(buf, atSec, amp = 0.05) {
+  addSnap(buf, atSec, amp, 0.005);
+  const start = Math.round(atSec * SR);
+  for (let i = 0; i < SR * 0.1; i++) {
+    const t = i / SR;
+    buf[start + i] += Math.sin(2 * Math.PI * 180 * t) * amp * 1.2 * Math.exp(-t / 0.012);
+  }
+}
+
+function run(buf, sensitivity = 0.5, calibration = null, events = null) {
+  const a = new SnapAnalyzer(SR, sensitivity, calibration);
   let snaps = 0;
-  for (let i = 0; i < buf.length; i += 1024) snaps += a.process(buf.subarray(i, i + 1024));
+  for (let i = 0; i < buf.length; i += 1024) {
+    snaps += a.process(buf.subarray(i, i + 1024));
+    if (events) events.push(...a.takeEvents());
+  }
   return snaps;
 }
 
@@ -94,9 +108,41 @@ const check = (name, got, want) => cases.push({ name, got, want, ok: got === wan
   check('double snap 0.4 s apart', run(b), 2);
 }
 {
-  const b = silence(3);
-  addSnap(b, 1.0, 0.02);
-  check('faint snap at low sensitivity', run(b, 0), 0);
+  const b = silence(5, 0.001);
+  addRealSnap(b, 1.0);
+  addRealSnap(b, 2.5);
+  addRealSnap(b, 4.0);
+  check('realistic snaps (thump + crack) with fan noise', run(b), 3);
+}
+{
+  const b = silence(4, 0.0003);
+  addRealSnap(b, 1.0, 0.008);
+  addRealSnap(b, 2.5, 0.008);
+  check('realistic snaps on a quiet low-gain mic', run(b), 2);
+}
+{
+  const b = silence(3, 0.002);
+  addSnap(b, 1.0, 0.004);
+  check('faint click near the noise floor at low sensitivity', run(b, 0), 0);
+}
+{
+  // Calibration: learn from three snaps, then the learned thresholds must
+  // still catch snaps and still ignore speech.
+  const learn = silence(4, 0.001);
+  addRealSnap(learn, 0.8, 0.03);
+  addRealSnap(learn, 1.8, 0.03);
+  addRealSnap(learn, 2.8, 0.03);
+  const events = [];
+  run(learn, 0.5, null, events);
+  const cal = SnapAnalyzer.calibrate(events);
+  check('calibration learns from 3 snaps', cal ? 'ok' : 'null', 'ok');
+  const b = silence(4, 0.001);
+  addRealSnap(b, 1.0, 0.03);
+  addRealSnap(b, 2.5, 0.03);
+  check('calibrated: detects snaps', run(b, 0.5, cal), 2);
+  const sp = silence(5, 0.001);
+  addSpeech(sp, 0.5, 4);
+  check('calibrated: ignores speech', run(sp, 0.5, cal), 0);
 }
 
 let failed = 0;

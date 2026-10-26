@@ -9,6 +9,7 @@
   const ports = new Set();
   let settings = null;
   let roomUrl = null;
+  let calibration = null;
   let loaded = false;
   let status = null;
   let booted = false;
@@ -29,6 +30,7 @@
     if (!loaded) return;
     toEngine('settings', settings);
     toEngine('room', { dataUrl: roomUrl });
+    toEngine('calibration', { value: calibration });
     toEngine('hello');
   }
 
@@ -42,9 +44,10 @@
     }
   }
 
-  chrome.storage.local.get(['settings', 'room']).then((r) => {
+  chrome.storage.local.get(['settings', 'room', 'calibration']).then((r) => {
     settings = r.settings || {};
     roomUrl = r.room || null;
+    calibration = r.calibration || null;
     loaded = true;
     pushAll();
   });
@@ -58,6 +61,10 @@
     if (changes.room) {
       roomUrl = changes.room.newValue || null;
       toEngine('room', { dataUrl: roomUrl });
+    }
+    if (changes.calibration) {
+      calibration = changes.calibration.newValue || null;
+      toEngine('calibration', { value: calibration });
     }
   });
 
@@ -74,6 +81,10 @@
         chrome.runtime.sendMessage({ type: 'status', status, boot: !booted }).catch(() => {});
         booted = true;
         broadcast('status', status);
+        break;
+      case 'calibrated':
+        calibration = d.payload.value;
+        chrome.storage.local.set({ calibration });
         break;
       case 'roomCaptured':
         roomUrl = d.payload.dataUrl;

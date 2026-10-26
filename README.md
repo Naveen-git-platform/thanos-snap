@@ -8,7 +8,7 @@ Everything runs on your computer. There's no account, no server and no tracking.
 
 ## Install
 
-1. Download **`thanos-snap-v1.0.0.zip`** from the [latest release](https://github.com/Naveen-git-platform/thanos-snap/releases/latest).
+1. Download **`thanos-snap-v1.1.0.zip`** from the [latest release](https://github.com/Naveen-git-platform/thanos-snap/releases/latest).
 2. Unzip it. You get a `thanos-snap` folder.
 3. Open `chrome://extensions` in Chrome (or Edge, Brave or another Chromium browser, version 111 or newer).
 4. Turn on **Developer mode** (top right).
@@ -23,7 +23,7 @@ If a call tab was already open, reload it after installing.
 2. Click the Thanos Snap toolbar icon and select the call.
 3. **Capture the empty room:** click *Capture empty room*, step out of view during the 5-second countdown, and stay out for 3 more seconds. A double beep (played only on your computer) tells you to come back.
 4. Vanish and return with any of these:
-   - **Snap your fingers** (turn on *Snap detection* first)
+   - **Snap your fingers** (turn on *Snap detection* first, then click **Teach my snap** and snap 3 times so it learns how your snap sounds on your mic)
    - the **Vanish / Return** button in the popup
    - **Alt+Shift+V** (change it at `chrome://extensions/shortcuts`)
 
@@ -33,7 +33,8 @@ If a call tab was already open, reload it after installing.
 
 - Keep the camera and lighting the same as when you captured the room. If you move the laptop or the light changes, capture the room again.
 - On your first try, **turn off the call's own background blur or effects** and ask someone else on the call to check how it looks.
-- If snaps don't trigger, raise **Sensitivity** and watch the meter: a snap should go past the white line. If it triggers by accident, lower the sensitivity or turn on **Require double snap**.
+- Snap detection listens for the **sound** of a snap. It doesn't watch your hand. Every mic sounds different, so use **Teach my snap** once.
+- Under the meter, the popup shows what it heard and why a sound didn't count: *too quiet*, *not sharp enough* or *lasted too long*. If snaps still don't trigger, raise **Sensitivity**. If it triggers by accident, lower it or turn on **Require double snap**.
 - If your camera was already on when you installed or reloaded the extension, turn it off and on again in the call.
 
 ## Privacy
@@ -55,8 +56,8 @@ If a call tab was already open, reload it after installing.
 | Part | File | What it does |
 | --- | --- | --- |
 | Engine | [`src/engine.js`](src/engine.js) | Runs inside the call page and wraps `getUserMedia`. Camera frames go through `MediaStreamTrackProcessor`, are composited on an `OffscreenCanvas`, and come back out through `MediaStreamTrackGenerator`. |
-| Thanos effect | `src/engine.js` | Compares the live frame with the empty-room snapshot to find you, without any ML model. Those areas break into particles that drift away and fade while the room shows through. Returning plays the effect backwards. |
-| Snap detector | [`src/snap-analyzer.js`](src/snap-analyzer.js) | Looks for a short, bright, isolated click: high-frequency energy well above the noise floor, quiet before it, and gone within about 30 to 150 ms. Speech, typing and beeps get rejected. |
+| Thanos effect | `src/engine.js` | Compares the live frame with the empty-room snapshot to find you, without any ML model. It first corrects for the camera re-adjusting exposure and white balance when you step back in, then keeps only large blobs and fills holes. Only you break into particles; the background crossfades smoothly. Returning plays the effect backwards. |
+| Snap detector | [`src/snap-analyzer.js`](src/snap-analyzer.js) | Looks for a short, bright, isolated click: high-frequency energy well above the noise floor, quiet before it, and gone within about 30 to 150 ms. Speech, typing and beeps get rejected. *Teach my snap* learns the thresholds from your own snaps. |
 | Bridge | [`src/bridge.js`](src/bridge.js) | Passes messages between the page and the extension and syncs settings and the room snapshot. |
 | Background | [`src/background.js`](src/background.js) | Handles the toolbar badge (`ON` / `GONE`) and the keyboard shortcut. |
 | Popup | [`popup/`](popup/) | The controls. |
